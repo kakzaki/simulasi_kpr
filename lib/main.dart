@@ -158,13 +158,75 @@ class _CreditSimulationScreenState extends State<CreditSimulationScreen> {
   }
 
   Future<void> _exportToExcel() async {
+    FocusScope.of(context).requestFocus(FocusNode());
     HeadUpLoading.show(context);
     try {
-      // Buat instance Excel
       var excel = Excel.createExcel();
       var sheet = excel['Simulasi KPR'];
 
-      // Buat header
+      // Add title and subtitle
+      var titleStyle = CellStyle(
+        bold: true,
+        horizontalAlign: HorizontalAlign.Center,
+        fontSize: 14,
+      );
+
+      var dateStyle = CellStyle(
+        horizontalAlign: HorizontalAlign.Center,
+        fontSize: 11,
+      );
+
+      // Merge cells for title
+      sheet.merge(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 0),
+          CellIndex.indexByColumnRow(columnIndex: 8, rowIndex: 0));
+
+      sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 0))
+        ..value = TextCellValue('SIMULASI KREDIT PEMILIKAN RUMAH (KPR)')
+        ..cellStyle = titleStyle;
+
+      // Add current date
+      sheet.merge(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 1),
+          CellIndex.indexByColumnRow(columnIndex: 8, rowIndex: 1));
+
+      var now = DateTime.now();
+      var dateFormat = DateFormat('dd MMMM yyyy HH:mm', 'id_ID');
+      sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 1))
+        ..value = TextCellValue('Tanggal: ${dateFormat.format(now)}')
+        ..cellStyle = dateStyle;
+
+      // Add loan details
+      var loanDetailsStyle = CellStyle(
+        fontSize: 11,
+      );
+
+      var cleanValue =
+          _jumlahKreditController.text.replaceAll(RegExp(r'[^0-9]'), '');
+      var jumlahKredit = double.parse(cleanValue);
+
+      // Sheet title
+      sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 3))
+        ..value = TextCellValue('Plafon Kredit')
+        ..cellStyle = loanDetailsStyle;
+
+      // Use currency style for loan amount
+      var loanAmountStyle = CellStyle(
+        fontSize: 11,
+        numberFormat: NumFormat.custom(formatCode: 'Rp#,##0'),
+        horizontalAlign: HorizontalAlign.Left,
+      );
+
+      sheet.cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: 3))
+        ..value = DoubleCellValue(jumlahKredit)
+        ..cellStyle = loanAmountStyle;
+
+      sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 4))
+        ..value = TextCellValue('Jangka Waktu')
+        ..cellStyle = loanDetailsStyle;
+      sheet.cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: 4))
+        ..value = TextCellValue(': ${_jangkaWaktuController.text} bulan')
+        ..cellStyle = loanDetailsStyle;
+
+      // Add table headers at row 6
       final headers = [
         'Bulan',
         'Rate (%)',
@@ -177,21 +239,37 @@ class _CreditSimulationScreenState extends State<CreditSimulationScreen> {
         'Sisa Pinjaman'
       ];
 
-      // Tambahkan style untuk header
       var headerStyle = CellStyle(
         bold: true,
         horizontalAlign: HorizontalAlign.Center,
         backgroundColorHex: ExcelColor.fromHexString('#CCCCCC'),
+        verticalAlign: VerticalAlign.Center,
+        textWrapping: TextWrapping.WrapText,
       );
 
-      // Tulis header
+      // Write headers
       for (var i = 0; i < headers.length; i++) {
-        sheet.cell(CellIndex.indexByColumnRow(columnIndex: i, rowIndex: 0))
-          ..value = TextCellValue("${headers[i]}")
+        sheet.cell(CellIndex.indexByColumnRow(columnIndex: i, rowIndex: 6))
+          ..value = TextCellValue(headers[i])
           ..cellStyle = headerStyle;
       }
 
-      // Tulis data
+      // Style definitions
+      var numberStyle = CellStyle(
+        horizontalAlign: HorizontalAlign.Center,
+      );
+
+      var rateStyle = CellStyle(
+        numberFormat: NumFormat.custom(formatCode: '0.00"%"'),
+        horizontalAlign: HorizontalAlign.Center,
+      );
+
+      var currencyStyle = CellStyle(
+        numberFormat: NumFormat.custom(formatCode: 'Rp#,##0'),
+        horizontalAlign: HorizontalAlign.Right,
+      );
+
+      // Write data starting from row 7
       for (var i = 0; i < _angsuranTable.length; i++) {
         var data = _angsuranTable[i];
         var pelunasanMaju = _isPelunasanMajuActive
@@ -205,7 +283,8 @@ class _CreditSimulationScreenState extends State<CreditSimulationScreen> {
 
         final rowData = [
           data['bulan'],
-          (_getBunga(data['bulan']) * 100).toStringAsFixed(2),
+          (_getBunga(data['bulan']) *
+              100), // Remove toStringAsFixed since we're using number format
           data['pokok'],
           data['bunga'],
           data['angsuran'],
@@ -217,25 +296,51 @@ class _CreditSimulationScreenState extends State<CreditSimulationScreen> {
 
         for (var j = 0; j < rowData.length; j++) {
           var cell = sheet.cell(
-              CellIndex.indexByColumnRow(columnIndex: j, rowIndex: i + 1));
-          cell.value = TextCellValue("${rowData[j]}");
+              CellIndex.indexByColumnRow(columnIndex: j, rowIndex: i + 7));
 
-          // Format angka untuk kolom yang berisi nilai uang
-          if (j >= 2) {
-            // Kolom mulai dari 'Pokok'
-            cell.cellStyle = CellStyle(
-              numberFormat: NumFormat.standard_3,
-            );
+          if (j == 0) {
+            // Bulan
+            cell.value = IntCellValue(rowData[j]);
+            cell.cellStyle = numberStyle;
+          } else if (j == 1) {
+            // Rate
+            cell.value = DoubleCellValue(rowData[j]);
+            cell.cellStyle = rateStyle;
+          } else {
+            // Currency columns
+            cell.value = DoubleCellValue(rowData[j].toDouble());
+            cell.cellStyle = currencyStyle;
           }
         }
       }
 
-      // Tambahkan ringkasan di bawah tabel
-      var lastRow = _angsuranTable.length + 2; // Beri jarak 1 baris
+      // Add summary section
+      var lastRow =
+          _angsuranTable.length + 9; // Give some space after the table
+
+      var summaryHeaderStyle = CellStyle(
+        bold: true,
+        fontSize: 12,
+        backgroundColorHex: ExcelColor.fromHexString('#E0E0E0'),
+      );
+
+      sheet.merge(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: lastRow),
+          CellIndex.indexByColumnRow(columnIndex: 8, rowIndex: lastRow));
 
       sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: lastRow))
-        ..value = TextCellValue('Ringkasan')
-        ..cellStyle = CellStyle(bold: true);
+        ..value = TextCellValue('RINGKASAN')
+        ..cellStyle = summaryHeaderStyle;
+
+      var summaryLabelStyle = CellStyle(
+        bold: true,
+        fontSize: 11,
+      );
+
+      var summaryValueStyle = CellStyle(
+        numberFormat: NumFormat.custom(formatCode: 'Rp#,##0'),
+        horizontalAlign: HorizontalAlign.Left,
+        fontSize: 11,
+      );
 
       final totalPokok =
           _angsuranTable.fold(0.0, (sum, item) => sum + item['pokok']);
@@ -254,7 +359,7 @@ class _CreditSimulationScreenState extends State<CreditSimulationScreen> {
                   0.0, (sum, item) => sum + item['nominal'] + item['penalty'])
               : 0.0);
 
-      // Tulis ringkasan
+      // Write summary with proper formatting
       final summaryData = [
         ['Total Pokok', totalPokok],
         ['Total Bunga', totalBunga],
@@ -268,26 +373,25 @@ class _CreditSimulationScreenState extends State<CreditSimulationScreen> {
       for (var i = 0; i < summaryData.length; i++) {
         sheet.cell(CellIndex.indexByColumnRow(
             columnIndex: 0, rowIndex: lastRow + i + 1))
-          ..value = TextCellValue("${summaryData[i][0]}")
-          ..cellStyle = CellStyle(bold: true);
+          ..value = TextCellValue(summaryData[i][0].toString())
+          ..cellStyle = summaryLabelStyle;
 
         sheet.cell(CellIndex.indexByColumnRow(
             columnIndex: 1, rowIndex: lastRow + i + 1))
           ..value = DoubleCellValue(double.parse(summaryData[i][1].toString()))
-          ..cellStyle = CellStyle(
-            numberFormat: NumFormat.standard_3,
-            bold: i == summaryData.length - 1, // Bold untuk Total Pembayaran
-          );
+          ..cellStyle = summaryValueStyle;
       }
 
-      // Auto-fit columns
-      for (var i = 0; i < headers.length; i++) {
-        sheet.setColumnWidth(i, 15.0);
+      // Set column widths
+      sheet.setColumnWidth(0, 8); // Bulan
+      sheet.setColumnWidth(1, 10); // Rate
+      for (var i = 2; i < 9; i++) {
+        sheet.setColumnWidth(
+            i, 20); // Currency columns - made wider for Rupiah format
       }
 
-      // Simpan file
+      // Save file
       final directory = await getApplicationCacheDirectory();
-      final now = DateTime.now();
       final fileName =
           'simulasi_kpr_${now.year}${now.month}${now.day}_${now.hour}${now.minute}${now.second}.xlsx';
       final file = File('${directory.path}/$fileName');
@@ -297,7 +401,7 @@ class _CreditSimulationScreenState extends State<CreditSimulationScreen> {
       if (mounted) {
         HeadUpLoading.hide();
         debugPrint('File Excel berhasil disimpan di ${file.path}');
-        await Share.shareXFiles([XFile(file.path)], text: 'Bagikan file ini');
+        await Share.shareXFiles([XFile(file.path)], text: 'Simulasi KPR');
       }
     } catch (e, stack) {
       HeadUpLoading.hide();
@@ -324,8 +428,7 @@ class _CreditSimulationScreenState extends State<CreditSimulationScreen> {
 
 // Fungsi untuk menghitung tabel amortisasi
   Future<void> _calculateLoan() async {
-    FocusNode focusNode = FocusNode();
-    focusNode.unfocus();
+    FocusScope.of(context).requestFocus(FocusNode());
     if (!_formKey.currentState!.validate()) return;
     HeadUpLoading.show(context);
 
