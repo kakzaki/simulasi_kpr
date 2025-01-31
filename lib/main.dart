@@ -189,7 +189,7 @@ class _CreditSimulationScreenState extends State<CreditSimulationScreen> {
           CellIndex.indexByColumnRow(columnIndex: 8, rowIndex: 1));
 
       var now = DateTime.now();
-      var dateFormat = DateFormat('dd MMMM yyyy HH:mm', 'id_ID');
+      var dateFormat = DateFormat('dd MMMM yyyy HH:mm');
       sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 1))
         ..value = TextCellValue('Tanggal: ${dateFormat.format(now)}')
         ..cellStyle = dateStyle;
