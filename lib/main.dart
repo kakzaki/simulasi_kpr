@@ -26,7 +26,7 @@ class CreditSimulationApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Simulasi Kredit',
+      title: 'KPR Simulasi Plus',
       theme: ThemeData(
         primarySwatch: Colors.blue,
         brightness: Brightness.light,
@@ -905,7 +905,7 @@ class _CreditSimulationScreenState extends State<CreditSimulationScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Simulasi KPR'),
+        title: Text('KPR Simulasi Plus'),
         actions: [
           IconButton(
             icon: Icon(Icons.refresh),
