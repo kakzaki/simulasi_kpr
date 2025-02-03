@@ -53,7 +53,7 @@ class _CreditSimulationScreenState extends State<CreditSimulationScreen> {
   final _currencyFormat = NumberFormat("#,##0", "id_ID");
 
   final _jumlahKreditController = TextEditingController(text: '500.000.000');
-  final _jangkaWaktuController = TextEditingController(text: '240');
+  final _tenorController = TextEditingController(text: '240');
   final _penaltyRateController = TextEditingController(text: '10');
   final _pelunasanMajuNominalController = TextEditingController();
   final _pelunasanMajuBulanController = TextEditingController();
@@ -76,7 +76,7 @@ class _CreditSimulationScreenState extends State<CreditSimulationScreen> {
   @override
   void dispose() {
     _jumlahKreditController.dispose();
-    _jangkaWaktuController.dispose();
+    _tenorController.dispose();
     _penaltyRateController.dispose();
     _pelunasanMajuNominalController.dispose();
     _pelunasanMajuBulanController.dispose();
@@ -137,7 +137,7 @@ class _CreditSimulationScreenState extends State<CreditSimulationScreen> {
         _pelunasanMajuNominalController.text.replaceAll(RegExp(r'[^0-9]'), ''));
     int bulan = int.parse(_pelunasanMajuBulanController.text);
 
-    if (bulan > int.parse(_jangkaWaktuController.text)) {
+    if (bulan > int.parse(_tenorController.text)) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Bulan pelunasan melebihi jangka waktu kredit')),
       );
@@ -205,7 +205,7 @@ class _CreditSimulationScreenState extends State<CreditSimulationScreen> {
 
       // Sheet title
       sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 3))
-        ..value = TextCellValue('Plafon Kredit')
+        ..value = TextCellValue('Plavon Kredit')
         ..cellStyle = loanDetailsStyle;
 
       // Use currency style for loan amount
@@ -220,10 +220,10 @@ class _CreditSimulationScreenState extends State<CreditSimulationScreen> {
         ..cellStyle = loanAmountStyle;
 
       sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 4))
-        ..value = TextCellValue('Jangka Waktu')
+        ..value = TextCellValue('Tenor')
         ..cellStyle = loanDetailsStyle;
       sheet.cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: 4))
-        ..value = TextCellValue(': ${_jangkaWaktuController.text} bulan')
+        ..value = TextCellValue(' ${_tenorController.text} bulan')
         ..cellStyle = loanDetailsStyle;
 
       // Add table headers at row 6
@@ -438,7 +438,7 @@ class _CreditSimulationScreenState extends State<CreditSimulationScreen> {
       String cleanValue =
           _jumlahKreditController.text.replaceAll(RegExp(r'[^0-9]'), '');
       double jumlahKredit = double.parse(cleanValue);
-      int jangkaWaktu = int.parse(_jangkaWaktuController.text);
+      int jangkaWaktu = int.parse(_tenorController.text);
       _penaltyRate = double.parse(_penaltyRateController.text);
 
       await Future.delayed(Duration(milliseconds: 500));
@@ -590,7 +590,23 @@ class _CreditSimulationScreenState extends State<CreditSimulationScreen> {
                 return null;
               },
             ),
-            // ... (kode lainnya tetap sama)
+            SizedBox(height: 16),
+            TextFormField(
+              controller: _tenorController,
+              keyboardType: TextInputType.number,
+              decoration: InputDecoration(labelText: 'Tenor (bulan)'),
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'Tenor wajib diisi';
+                }
+                int? tenor = int.tryParse(value);
+                if (tenor == null || tenor <= 0) {
+                  return 'Tenor tidak valid';
+                }
+                return null;
+              },
+            ),
           ],
         ),
       ),
@@ -920,7 +936,7 @@ class _CreditSimulationScreenState extends State<CreditSimulationScreen> {
                   InterestRatePeriod('7-20', 10.25),
                 ];
                 _jumlahKreditController.text = '500.000.000';
-                _jangkaWaktuController.text = '240';
+                _tenorController.text = '240';
                 _penaltyRateController.text = '10';
               });
             },
