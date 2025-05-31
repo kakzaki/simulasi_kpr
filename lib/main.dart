@@ -1,13 +1,17 @@
 import 'dart:io';
 import 'dart:math';
 
-import 'package:excel/excel.dart';
+import 'package:excel/excel.dart' hide Border;
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:headup_loading/headup_loading.dart';
 import 'package:intl/intl.dart';
+import 'package:open_file/open_file.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:universal_html/html.dart' as html;
+import 'package:url_launcher/url_launcher.dart';
 
 void main() {
   runApp(const CreditSimulationApp());
@@ -390,19 +394,82 @@ class _CreditSimulationScreenState extends State<CreditSimulationScreen> {
             i, 20); // Currency columns - made wider for Rupiah format
       }
 
-      // Save file
-      final directory = await getApplicationCacheDirectory();
-      final fileName =
-          'simulasi_kpr_${now.year}${now.month}${now.day}_${now.hour}${now.minute}${now.second}.xlsx';
-      final file = File('${directory.path}/$fileName');
+      // // Save file
+      // final directory = await getApplicationCacheDirectory();
+      // final fileName =
+      //     'simulasi_kpr_${now.year}${now.month}${now.day}_${now.hour}${now.minute}${now.second}.xlsx';
+      // final file = File('${directory.path}/$fileName');
+      //
+      // await file.writeAsBytes(excel.encode()!);
+      //
+      // if (mounted) {
+      //   HeadUpLoading.hide();
+      //   debugPrint('File Excel berhasil disimpan di ${file.path}');
+      //   await Share.shareXFiles([XFile(file.path)], text: 'Simulasi KPR');
+      // }
 
-      await file.writeAsBytes(excel.encode()!);
-
-      if (mounted) {
-        HeadUpLoading.hide();
-        debugPrint('File Excel berhasil disimpan di ${file.path}');
-        await Share.shareXFiles([XFile(file.path)], text: 'Simulasi KPR');
+      // Hapus sheet default jika ada
+      if (excel.sheets.length > 1) {
+        excel.delete('Sheet1');
       }
+      // 3. Encode ke bytes
+      final excelBytes = excel.encode()!;
+      final fileName =
+          'KPR_Simulasi_${DateFormat('yyyyMMdd_HHmm').format(DateTime.now())}.xlsx';
+
+      // 4. Handle export berdasarkan platform
+      if (kIsWeb) {
+        // Untuk Web
+        final blob = html.Blob([
+          excelBytes
+        ], 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        final url = html.Url.createObjectUrlFromBlob(blob);
+        final anchor = html.AnchorElement(href: url)
+          ..setAttribute('download', fileName)
+          ..style.display = 'none';
+
+        html.document.body?.children.add(anchor);
+        anchor.click();
+
+        Future.delayed(const Duration(seconds: 1), () {
+          html.document.body?.children.remove(anchor);
+          html.Url.revokeObjectUrl(url);
+        });
+      } else {
+        // Untuk mobile dan desktop
+        final directory = await getDownloadsDirectory();
+        final filePath = '${directory?.path}/$fileName';
+        final file = File(filePath);
+
+        await file.writeAsBytes(excelBytes);
+
+        // Untuk mobile (Android/iOS)
+        if (Platform.isAndroid || Platform.isIOS) {
+          await Share.shareXFiles([XFile(file.path)], text: 'Simulasi KPR');
+        }
+        // Untuk desktop (Windows/macOS/Linux)
+        else {
+          // if (Platform.isWindows) {
+          //   await Process.run('explorer', ['/select,', file.path]);
+          // } else if (Platform.isMacOS) {
+          //   await Process.run('open', ['-R', file.path]);
+          // } else if (Platform.isLinux) {
+          //   await Process.run('xdg-open', [directory!.path]);
+          // }
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('File tersimpan di: $filePath'),
+              action: SnackBarAction(
+                label: 'Buka',
+                onPressed: () => OpenFile.open(filePath),
+              ),
+            ),
+          );
+        }
+      }
+
+      if (mounted) HeadUpLoading.hide();
     } catch (e, stack) {
       HeadUpLoading.hide();
       if (mounted) {
@@ -976,9 +1043,55 @@ class _CreditSimulationScreenState extends State<CreditSimulationScreen> {
             ),
             SizedBox(height: 16),
             _buildResultsSection(),
+            SizedBox(height: 16),
+            _buildDeveloperFooter()
           ],
         ),
       ),
     );
+  }
+
+  Widget _buildDeveloperFooter() {
+    return Container(
+      padding: EdgeInsets.symmetric(vertical: 8),
+      decoration: BoxDecoration(
+          border: Border(top: BorderSide(color: Colors.grey.shade200))),
+      child: InkWell(
+        onTap: () => _launchWebsite(),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              'Powered by ',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey.shade600,
+              ),
+            ),
+            Text(
+              'kakzaki.dev',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.blue,
+                fontWeight: FontWeight.bold,
+                decoration: TextDecoration.underline,
+              ),
+            ),
+            Icon(
+              Icons.open_in_new,
+              size: 14,
+              color: Colors.blue,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _launchWebsite() async {
+    const url = 'https://kakzaki.dev';
+    if (await canLaunchUrl(Uri.parse(url))) {
+      await launchUrl(Uri.parse(url));
+    }
   }
 }
