@@ -74,15 +74,13 @@ class _CreditSimulationScreenState extends State<CreditSimulationScreen> {
   final _ratePeriodEndController = TextEditingController();
   final _rateController = TextEditingController();
 
-  /* controller baru */
-  final _floatingMarginController = TextEditingController(text: '2.5');
-  final _floatingRefController = TextEditingController(text: '6.0');
+  final _floatingMarginController = TextEditingController(text: '13.5');
 
   /* data */
   final List<InterestRatePeriod> _periods = [
     InterestRatePeriod('1-3', 3.95, type: RateType.fixed),
     InterestRatePeriod('4-6', 8.0, type: RateType.fixed),
-    InterestRatePeriod('7-20', 0, margin: 2.5, type: RateType.floating),
+    InterestRatePeriod('7-20', 10.25, type: RateType.fixed),
   ];
 
   final List<Map<String, dynamic>> _angsuranTable = [];
@@ -106,7 +104,6 @@ class _CreditSimulationScreenState extends State<CreditSimulationScreen> {
     _rateController.dispose();
     _scrollController.dispose();
     _floatingMarginController.dispose();
-    _floatingRefController.dispose();
     super.dispose();
   }
 
@@ -120,7 +117,7 @@ class _CreditSimulationScreenState extends State<CreditSimulationScreen> {
       if (tahun >= years[0] && tahun <= years[1]) {
         if (p.type == RateType.fixed) return p.rate / 100;
         // floating
-        final ref = double.tryParse(_floatingRefController.text) ?? 6.0;
+        final ref = 0;
         final margin =
             p.margin ?? double.tryParse(_floatingMarginController.text) ?? 2.5;
         return (ref + margin) / 100;
@@ -625,7 +622,7 @@ class _CreditSimulationScreenState extends State<CreditSimulationScreen> {
                 keyboardType:
                     const TextInputType.numberWithOptions(decimal: true),
                 decoration: const InputDecoration(
-                    labelText: 'Margin Floating (%)', suffixText: '%'),
+                    labelText: 'Rate Floating (%)', suffixText: '%'),
                 inputFormatters: [
                   FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
                 ],
@@ -652,7 +649,7 @@ class _CreditSimulationScreenState extends State<CreditSimulationScreen> {
                       title: Text('Tahun ${p.period}'),
                       subtitle: Text(p.type == RateType.fixed
                           ? '${p.rate}% (Fixed)'
-                          : 'Margin ${p.margin ?? _floatingMarginController.text}% (Floating)'),
+                          : '${p.margin ?? _floatingMarginController.text}% (Floating)'),
                       trailing: IconButton(
                         icon: const Icon(Icons.delete, color: Colors.red),
                         onPressed: () => setState(() => _periods.removeAt(i)),
@@ -662,20 +659,6 @@ class _CreditSimulationScreenState extends State<CreditSimulationScreen> {
                 ),
               ),
             ],
-            const SizedBox(height: 8),
-            const Text('Referensi Floating (%)'),
-            TextFormField(
-              controller: _floatingRefController,
-              keyboardType:
-                  const TextInputType.numberWithOptions(decimal: true),
-              decoration: const InputDecoration(
-                labelText: 'Mis. 6-mo JIBOR',
-                suffixText: '%',
-              ),
-              inputFormatters: [
-                FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
-              ],
-            ),
           ],
         ),
       ),
@@ -917,14 +900,12 @@ class _CreditSimulationScreenState extends State<CreditSimulationScreen> {
                   ..addAll([
                     InterestRatePeriod('1-3', 3.95, type: RateType.fixed),
                     InterestRatePeriod('4-6', 8.0, type: RateType.fixed),
-                    InterestRatePeriod('7-20', 0,
-                        margin: 2.5, type: RateType.floating),
+                    InterestRatePeriod('7-20', 10.25, type: RateType.fixed),
                   ]);
                 _jumlahKreditController.text = '500.000.000';
                 _tenorController.text = '240';
                 _penaltyRateController.text = '10';
-                _floatingMarginController.text = '2.5';
-                _floatingRefController.text = '6.0';
+                _floatingMarginController.text = '13.5';
               });
             },
           ),
