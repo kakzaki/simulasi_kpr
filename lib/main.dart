@@ -14,6 +14,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import 'models/interest_rate_period.dart';
 import 'models/simulation_config.dart';
+import 'models/amortization_entry.dart';
 import 'services/loan_calculator.dart';
 import 'services/storage_service.dart';
 import 'screens/compare_screen.dart';
@@ -1201,9 +1202,9 @@ class _CreditSimulationScreenState extends State<CreditSimulationScreen>
                   ),
 
                   /* Tab 1: Tabel */
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: _buildDataTable(result),
+                  ListView(
+                    padding: EdgeInsets.zero,
+                    children: _buildDataTable(result),
                   ),
                 ],
               ),
@@ -1304,9 +1305,9 @@ class _CreditSimulationScreenState extends State<CreditSimulationScreen>
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: item.color.withOpacity(0.06),
+        color: item.color.withValues(alpha: 0.06),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: item.color.withOpacity(0.15)),
+        border: Border.all(color: item.color.withValues(alpha: 0.15)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1337,97 +1338,258 @@ class _CreditSimulationScreenState extends State<CreditSimulationScreen>
     );
   }
 
-  /* ----------  DATA TABLE ---------- */
-  Widget _buildDataTable(LoanCalculationResult result) {
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(12),
-        child: DataTable(
-          headingRowColor: WidgetStateProperty.all(Colors.grey.shade100),
-          dataRowColor: WidgetStateProperty.resolveWith<Color?>(
-            (Set<WidgetState> states) {
-              if (states.contains(WidgetState.selected)) {
-                return AppColors.primary.withValues(alpha: 0.1);
-              }
-              return null;
-            },
+  /* ----------  DATA TABLE (YEARLY SUMMARY + EXPAND/COLLAPSE) ---------- */
+  List<Widget> _buildDataTable(LoanCalculationResult result) {
+    // Group entries by year
+    final yearlyGroups = <int, List<AmortizationEntry>>{};
+    for (final e in result.entries) {
+      final year = (e.bulan - 1) ~/ 12; // 0-indexed
+      yearlyGroups.putIfAbsent(year, () => []).add(e);
+    }
+
+    final years = yearlyGroups.keys.toList()..sort();
+    final theme = Theme.of(context);
+    return years.map((year) {
+        final entries = yearlyGroups[year]!;
+        final yearNumber = year + 1;
+        final totalPokok = entries.fold(0.0, (s, e) => s + e.pokok);
+        final totalBunga = entries.fold(0.0, (s, e) => s + e.bunga);
+        final totalAngsuran = entries.fold(0.0, (s, e) => s + e.angsuran);
+        final totalPelunasan = entries.fold(0.0, (double s, AmortizationEntry e) => s + e.pelunasanMaju);
+        final totalPenalty = entries.fold(0.0, (double s, AmortizationEntry e) => s + e.penalty);
+        final totalBayar = totalAngsuran + totalPelunasan + totalPenalty;
+        final lastEntry = entries.last;
+        final firstRate = entries.first.ratePercent;
+        final lastRate = entries.last.ratePercent;
+        final rateLabel = firstRate == lastRate
+            ? '${firstRate.toStringAsFixed(2)}%'
+            : '${firstRate.toStringAsFixed(2)}–${lastRate.toStringAsFixed(2)}%';
+        final hasExtra = totalPelunasan > 0 || totalPenalty > 0;
+
+        return Card(
+          margin: const EdgeInsets.only(bottom: 6),
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+            side: BorderSide(
+                color: hasExtra
+                    ? AppColors.warning.withValues(alpha: 0.3)
+                    : AppColors.border),
           ),
-          columnSpacing: 16,
-          horizontalMargin: 12,
-          headingTextStyle: const TextStyle(
-              fontWeight: FontWeight.w600,
-              fontSize: 12,
-              color: AppColors.textPrimary),
-          dataTextStyle: const TextStyle(
-              fontSize: 12, color: AppColors.textPrimary),
-          columns: const [
-            DataColumn(label: Text('Bulan')),
-            DataColumn(label: Text('Rate')),
-            DataColumn(label: Text('Pokok')),
-            DataColumn(label: Text('Bunga')),
-            DataColumn(label: Text('Angsuran')),
-            DataColumn(label: Text('Pelunasan')),
-            DataColumn(label: Text('Penalti')),
-            DataColumn(label: Text('Total')),
-            DataColumn(label: Text('Sisa')),
-          ],
-          rows: result.entries.asMap().entries.map((entry) {
-            final idx = entry.key;
-            final data = entry.value;
-            final isEven = idx % 2 == 0;
-            return DataRow(
-              color: WidgetStateProperty.resolveWith<Color?>(
-                (Set<WidgetState> states) {
-                  if (isEven) return Colors.grey.shade50;
-                  return null;
-                },
+          clipBehavior: Clip.antiAlias,
+          child: ExpansionTile(
+            tilePadding: const EdgeInsets.symmetric(horizontal: 12),
+            childrenPadding: const EdgeInsets.only(bottom: 4),
+            leading: Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                color: hasExtra
+                    ? AppColors.warning.withValues(alpha: 0.1)
+                    : AppColors.primary.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(8),
               ),
-              cells: [
-                DataCell(Text('${data.bulan}',
-                    style: const TextStyle(fontWeight: FontWeight.w500))),
-                DataCell(Text(
-                    '${data.ratePercent.toStringAsFixed(2)}%',
-                    style: TextStyle(
-                        color: data.hasPrepayment
-                            ? AppColors.error
-                            : AppColors.primary,
-                        fontWeight: FontWeight.w500))),
-                DataCell(Text(_formatCurrency(data.pokok))),
-                DataCell(Text(_formatCurrency(data.bunga))),
-                DataCell(Text(_formatCurrency(data.angsuran),
-                    style: const TextStyle(fontWeight: FontWeight.w500))),
-                DataCell(Text(
-                    data.pelunasanMaju > 0
-                        ? _formatCurrency(data.pelunasanMaju)
-                        : '-',
-                    style: TextStyle(
-                        color: data.pelunasanMaju > 0 ? AppColors.error : null))),
-                DataCell(Text(
-                    data.penalty > 0
-                        ? _formatCurrency(data.penalty)
-                        : '-',
-                    style: TextStyle(
-                        color: data.penalty > 0 ? AppColors.error : null))),
-                DataCell(Text(
-                  _formatCurrency(data.totalBayar),
-                  style: TextStyle(
+              alignment: Alignment.center,
+              child: Text(
+                '$yearNumber',
+                style: TextStyle(
+                    fontSize: 13,
                     fontWeight: FontWeight.w700,
-                    color: data.totalBayar > data.angsuran
-                        ? AppColors.error
-                        : AppColors.textPrimary,
+                    color: hasExtra ? AppColors.warning : AppColors.primary),
+              ),
+            ),
+            title: Row(
+              children: [
+                Expanded(
+                  flex: 3,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Tahun $yearNumber',
+                          style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600)),
+                      Text(rateLabel,
+                          style: TextStyle(
+                              fontSize: 11,
+                              color: theme.colorScheme.primary,
+                              fontWeight: FontWeight.w500)),
+                    ],
                   ),
-                )),
-                DataCell(Text(_formatCurrency(data.sisaPinjaman))),
+                ),
+                Expanded(
+                  flex: 2,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(_formatCurrency(totalPokok),
+                          style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600)),
+                      const Text('Pokok',
+                          style: TextStyle(
+                              fontSize: 10,
+                              color: AppColors.textSecondary)),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  flex: 2,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(_formatCurrency(totalBunga),
+                          style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600)),
+                      const Text('Bunga',
+                          style: TextStyle(
+                              fontSize: 10,
+                              color: AppColors.textSecondary)),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  flex: 2,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(_formatCurrency(totalBayar),
+                          style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: hasExtra ? AppColors.error : AppColors.textPrimary)),
+                      const Text('Total',
+                          style: TextStyle(
+                              fontSize: 10,
+                              color: AppColors.textSecondary)),
+                    ],
+                  ),
+                ),
               ],
-            );
-          }).toList(),
-        ),
-      ),
-    );
+            ),
+            subtitle: Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Text(
+                'Sisa: ${_formatCurrency(lastEntry.sisaPinjaman)}',
+                style: const TextStyle(
+                    fontSize: 11,
+                    color: AppColors.textSecondary),
+              ),
+            ),
+            children: [
+              // --- header row ---
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                color: Colors.grey.shade50,
+                child: Row(
+                  children: const [
+                    _TableCell('Bulan', flex: 1, bold: true),
+                    _TableCell('Rate', flex: 2, bold: true),
+                    _TableCell('Pokok', flex: 3, bold: true, alignEnd: true),
+                    _TableCell('Bunga', flex: 3, bold: true, alignEnd: true),
+                    _TableCell('Angsuran', flex: 3, bold: true, alignEnd: true),
+                    _TableCell('Pelunasan', flex: 3, bold: true, alignEnd: true),
+                    _TableCell('Penalti', flex: 3, bold: true, alignEnd: true),
+                    _TableCell('Total', flex: 3, bold: true, alignEnd: true),
+                    _TableCell('Sisa', flex: 3, bold: true, alignEnd: true),
+                  ],
+                ),
+              ),
+              // --- monthly rows ---
+              ...entries.asMap().entries.map((entry) {
+                final idx = entry.key;
+                final data = entry.value;
+                final isEven = idx % 2 == 0;
+                return Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                  color: isEven ? null : Colors.grey.shade50,
+                  child: Row(
+                    children: [
+                      _TableCell('${data.bulan}', flex: 1, bold: true),
+                      _TableCell(
+                        '${data.ratePercent.toStringAsFixed(2)}%',
+                        flex: 2,
+                        color: data.hasPrepayment ? AppColors.error : AppColors.primary,
+                        bold: true,
+                      ),
+                      _TableCell(_formatCurrency(data.pokok), flex: 3, alignEnd: true),
+                      _TableCell(_formatCurrency(data.bunga), flex: 3, alignEnd: true),
+                      _TableCell(_formatCurrency(data.angsuran),
+                          flex: 3, alignEnd: true, bold: true),
+                      _TableCell(
+                        data.pelunasanMaju > 0 ? _formatCurrency(data.pelunasanMaju) : '-',
+                        flex: 3,
+                        alignEnd: true,
+                        color: data.pelunasanMaju > 0 ? AppColors.error : null,
+                      ),
+                      _TableCell(
+                        data.penalty > 0 ? _formatCurrency(data.penalty) : '-',
+                        flex: 3,
+                        alignEnd: true,
+                        color: data.penalty > 0 ? AppColors.error : null,
+                      ),
+                      _TableCell(
+                        _formatCurrency(data.totalBayar),
+                        flex: 3,
+                        alignEnd: true,
+                        bold: true,
+                        color: data.totalBayar > data.angsuran ? AppColors.error : null,
+                      ),
+                      _TableCell(_formatCurrency(data.sisaPinjaman),
+                          flex: 3, alignEnd: true),
+                    ],
+                  ),
+                );
+              }),
+              // --- year total ---
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                decoration: BoxDecoration(
+                  color: hasExtra
+                      ? AppColors.error.withValues(alpha: 0.04)
+                      : AppColors.primary.withValues(alpha: 0.04),
+                  border: Border(
+                    top: BorderSide(
+                        color: AppColors.border, width: 0.5)),
+                ),
+                child: Row(
+                  children: [
+                    const _TableCell('', flex: 1),
+                    const _TableCell('TOTAL', flex: 2, bold: true),
+                    _TableCell(_formatCurrency(totalPokok),
+                        flex: 3, alignEnd: true, bold: true),
+                    _TableCell(_formatCurrency(totalBunga),
+                        flex: 3, alignEnd: true, bold: true),
+                    _TableCell(_formatCurrency(totalAngsuran),
+                        flex: 3, alignEnd: true, bold: true),
+                    _TableCell(
+                      totalPelunasan > 0 ? _formatCurrency(totalPelunasan) : '-',
+                      flex: 3,
+                      alignEnd: true,
+                      bold: true,
+                      color: totalPelunasan > 0 ? AppColors.error : null,
+                    ),
+                    _TableCell(
+                      totalPenalty > 0 ? _formatCurrency(totalPenalty) : '-',
+                      flex: 3,
+                      alignEnd: true,
+                      bold: true,
+                      color: totalPenalty > 0 ? AppColors.error : null,
+                    ),
+                    _TableCell(_formatCurrency(totalBayar),
+                        flex: 3, alignEnd: true, bold: true),
+                    _TableCell(_formatCurrency(lastEntry.sisaPinjaman),
+                        flex: 3, alignEnd: true, bold: true),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+    }).toList();
   }
 
   /* ----------  RATE BREAKDOWN ---------- */
@@ -1749,7 +1911,7 @@ class _CreditSimulationScreenState extends State<CreditSimulationScreen>
                 title: Text(c.name,
                     style: const TextStyle(fontWeight: FontWeight.w600)),
                 subtitle: Text(
-                    '$kreditStr • $tenorThn tahun • ${dateStr}'),
+                    '$kreditStr • $tenorThn tahun • $dateStr'),
                 trailing: IconButton(
                   icon: Icon(Icons.delete_outline,
                       color: Colors.red.shade300, size: 20),
@@ -1873,4 +2035,39 @@ class _SummaryItem {
   final Color color;
   final IconData icon;
   _SummaryItem(this.title, this.value, this.color, this.icon);
+}
+
+/* ----------  TABLE CELL HELPER ---------- */
+class _TableCell extends StatelessWidget {
+  final String text;
+  final int flex;
+  final bool bold;
+  final bool alignEnd;
+  final Color? color;
+
+  const _TableCell(
+    this.text, {
+    this.flex = 1,
+    this.bold = false,
+    this.alignEnd = false,
+    this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      flex: flex,
+      child: Text(
+        text,
+        textAlign: alignEnd ? TextAlign.end : TextAlign.start,
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: bold ? FontWeight.w600 : FontWeight.w400,
+          color: color ?? AppColors.textPrimary,
+        ),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+    );
+  }
 }

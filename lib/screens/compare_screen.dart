@@ -2,7 +2,6 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
-import '../models/interest_rate_period.dart';
 import '../models/simulation_config.dart';
 import '../services/loan_calculator.dart';
 import '../services/storage_service.dart';
