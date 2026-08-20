@@ -144,14 +144,11 @@ class _CreditSimulationScreenState extends State<CreditSimulationScreen>
   final _ratePeriodStartController = TextEditingController();
   final _ratePeriodEndController = TextEditingController();
   final _rateController = TextEditingController();
-  final _floatingRefRateController = TextEditingController(text: '4.0');
-  final _floatingMarginController = TextEditingController(text: '2.5');
 
-  /* data */
-  final List<InterestRatePeriod> _periods = [
+
+  /* data */  final List<InterestRatePeriod> _periods = [
     InterestRatePeriod('1-3', rate: 3.95, type: RateType.fixed),
-    InterestRatePeriod('4-6', rate: 8.0, type: RateType.fixed),
-    InterestRatePeriod('7-20', rate: 10.25, type: RateType.fixed),
+    InterestRatePeriod('4-20', rate: 13.0, type: RateType.floating),
   ];
 
   LoanCalculationResult? _result;
@@ -180,8 +177,7 @@ class _CreditSimulationScreenState extends State<CreditSimulationScreen>
     _ratePeriodStartController.dispose();
     _ratePeriodEndController.dispose();
     _rateController.dispose();
-    _floatingRefRateController.dispose();
-    _floatingMarginController.dispose();
+
     _scrollController.dispose();
     _focusNode.dispose();
     super.dispose();
@@ -222,17 +218,16 @@ class _CreditSimulationScreenState extends State<CreditSimulationScreen>
         _sortPeriods();
       });
     } else {
-      final refRate =
-          double.tryParse(_floatingRefRateController.text) ?? 4.0;
-      final margin =
-          double.tryParse(_floatingMarginController.text) ?? 2.5;
+      final rate = double.tryParse(_rateController.text);
+      if (rate == null || rate <= 0) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Rate floating tidak valid')),
+        );
+        return;
+      }
       setState(() {
-        _periods.add(InterestRatePeriod(
-          '$start-$end',
-          referenceRate: refRate,
-          margin: margin,
-          type: RateType.floating,
-        ));
+        _periods.add(
+            InterestRatePeriod('$start-$end', rate: rate, type: RateType.floating));
         _sortPeriods();
       });
     }
@@ -802,49 +797,24 @@ class _CreditSimulationScreenState extends State<CreditSimulationScreen>
               ],
             ),
             const SizedBox(height: 12),
-            if (_currentType == RateType.fixed)
-              TextFormField(
-                controller: _rateController,
-                keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true),
-                decoration: const InputDecoration(
-                    labelText: 'Suku Bunga Fixed',
-                    suffixText: '%',
-                    helperText: 'Contoh: 3.95'),
-                inputFormatters: [
-                  FilteringTextInputFormatter.allow(
-                      RegExp(r'^\d*\.?\d{0,2}')),
-                ],
-              )
-            else ...[
-              TextFormField(
-                controller: _floatingRefRateController,
-                keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true),
-                decoration: const InputDecoration(
-                    labelText: 'Reference Rate / BI Rate',
-                    suffixText: '%',
-                    helperText: 'Suku bunga acuan (SBI/BI Rate)'),
-                inputFormatters: [
-                  FilteringTextInputFormatter.allow(
-                      RegExp(r'^\d*\.?\d{0,2}')),
-                ],
+            TextFormField(
+              controller: _rateController,
+              keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true),
+              decoration: InputDecoration(
+                labelText: _currentType == RateType.fixed
+                    ? 'Suku Bunga Fixed'
+                    : 'Suku Bunga Floating',
+                suffixText: '%',
+                helperText: _currentType == RateType.fixed
+                    ? 'Contoh: 3.95'
+                    : 'Contoh: 13.0 (BRI), 12.5 (BCA)',
               ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _floatingMarginController,
-                keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true),
-                decoration: const InputDecoration(
-                    labelText: 'Margin Bank',
-                    suffixText: '%',
-                    helperText: 'Selisih yang ditambahkan bank'),
-                inputFormatters: [
-                  FilteringTextInputFormatter.allow(
-                      RegExp(r'^\d*\.?\d{0,2}')),
-                ],
-              ),
-            ],
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(
+                    RegExp(r'^\d*\.?\d{0,2}')),
+              ],
+            ),
             const SizedBox(height: 16),
             Center(
               child: ElevatedButton.icon(
@@ -1775,8 +1745,7 @@ class _CreditSimulationScreenState extends State<CreditSimulationScreen>
       penaltyRate: _penaltyRate,
       pelunasanMaju: List.from(_pelunasanMajuController),
       useFixedPmtPerPeriod: _useFixedPmtPerPeriod,
-      floatingRefRate: double.tryParse(_floatingRefRateController.text) ?? 4.0,
-      floatingMargin: double.tryParse(_floatingMarginController.text) ?? 2.5,
+
     );
   }
 
@@ -1796,8 +1765,7 @@ class _CreditSimulationScreenState extends State<CreditSimulationScreen>
         ..clear()
         ..addAll(config.pelunasanMaju);
       _useFixedPmtPerPeriod = config.useFixedPmtPerPeriod;
-      _floatingRefRateController.text = config.floatingRefRate.toString();
-      _floatingMarginController.text = config.floatingMargin.toString();
+
     });
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -1955,7 +1923,7 @@ class _CreditSimulationScreenState extends State<CreditSimulationScreen>
             SizedBox(height: 12),
             Text('• Fixed rate berjenjang (graduated fixed)'),
             SizedBox(height: 4),
-            Text('• Floating rate (reference rate + margin)'),
+            Text('• Floating rate (rate langsung dari bank)'),
             SizedBox(height: 4),
             Text('• Kombinasi fixed & floating'),
             SizedBox(height: 4),
@@ -1986,14 +1954,12 @@ class _CreditSimulationScreenState extends State<CreditSimulationScreen>
         ..clear()
         ..addAll([
           InterestRatePeriod('1-3', rate: 3.95, type: RateType.fixed),
-          InterestRatePeriod('4-6', rate: 8.0, type: RateType.fixed),
-          InterestRatePeriod('7-20', rate: 10.25, type: RateType.fixed),
+          InterestRatePeriod('4-20', rate: 13.0, type: RateType.floating),
         ]);
       _jumlahKreditController.text = '500.000.000';
       _tenorController.text = '240';
       _penaltyRateController.text = '10';
-      _floatingRefRateController.text = '4.0';
-      _floatingMarginController.text = '2.5';
+
     });
   }
 

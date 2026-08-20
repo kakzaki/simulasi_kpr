@@ -18,8 +18,6 @@ void main() {
           InterestRatePeriod('7-20', rate: 10.25, type: RateType.fixed),
         ],
         useFixedPmtPerPeriod: true,
-        floatingRefRate: 4.0,
-        floatingMargin: 2.5,
       );
 
       final json = config.toJson();
@@ -43,18 +41,15 @@ void main() {
         tenorBulan: 240,
         periods: [
           InterestRatePeriod('1-3', rate: 3.95, type: RateType.fixed),
-          InterestRatePeriod('4-20', referenceRate: 5.0, margin: 3.0, type: RateType.floating),
+          InterestRatePeriod('4-20', rate: 13.0, type: RateType.floating),
         ],
-        floatingRefRate: 5.0,
-        floatingMargin: 3.0,
       );
 
       final json = config.toJson();
       final restored = SimulationConfig.fromJson(json);
 
       expect(restored.periods[1].type, equals(RateType.floating));
-      expect(restored.periods[1].referenceRate, closeTo(5.0, 0.01));
-      expect(restored.periods[1].margin, closeTo(3.0, 0.01));
+      expect(restored.periods[1].rate, closeTo(13.0, 0.01));
     });
 
     test('should serialize prepayments correctly', () {

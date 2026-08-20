@@ -11,8 +11,6 @@ class SimulationConfig {
   final double penaltyRate;
   final List<Map<String, double>> pelunasanMaju;
   final bool useFixedPmtPerPeriod;
-  final double floatingRefRate;
-  final double floatingMargin;
 
   SimulationConfig({
     required this.name,
@@ -24,8 +22,6 @@ class SimulationConfig {
     this.penaltyRate = 10,
     this.pelunasanMaju = const [],
     this.useFixedPmtPerPeriod = true,
-    this.floatingRefRate = 4.0,
-    this.floatingMargin = 2.5,
   });
 
   /// Konversi ke Map untuk disimpan ke JSON
@@ -40,8 +36,6 @@ class SimulationConfig {
       'penaltyRate': penaltyRate,
       'pelunasanMaju': pelunasanMaju,
       'useFixedPmtPerPeriod': useFixedPmtPerPeriod,
-      'floatingRefRate': floatingRefRate,
-      'floatingMargin': floatingMargin,
     };
   }
 
@@ -67,8 +61,6 @@ class SimulationConfig {
               .toList() ??
           [],
       useFixedPmtPerPeriod: json['useFixedPmtPerPeriod'] as bool? ?? true,
-      floatingRefRate: (json['floatingRefRate'] as num?)?.toDouble() ?? 4.0,
-      floatingMargin: (json['floatingMargin'] as num?)?.toDouble() ?? 2.5,
     );
   }
 
@@ -76,22 +68,33 @@ class SimulationConfig {
     return {
       'period': p.period,
       'rate': p.rate,
-      'referenceRate': p.referenceRate,
-      'margin': p.margin,
       'type': p.type.name,
     };
   }
 
   static InterestRatePeriod _periodFromJson(Map<String, dynamic> json) {
+    // Backward compat: old format had referenceRate + margin for floating
+    // New format just uses rate for both fixed and floating
+    final type = RateType.values.firstWhere(
+      (e) => e.name == json['type'],
+      orElse: () => RateType.fixed,
+    );
+
+    if (type == RateType.floating && json['rate'] == 0) {
+      // Old format: compute rate from referenceRate + margin
+      final refRate = (json['referenceRate'] as num?)?.toDouble() ?? 0;
+      final m = (json['margin'] as num?)?.toDouble() ?? 0;
+      return InterestRatePeriod(
+        json['period'] as String,
+        rate: refRate + m,
+        type: type,
+      );
+    }
+
     return InterestRatePeriod(
       json['period'] as String,
       rate: (json['rate'] as num?)?.toDouble() ?? 0,
-      referenceRate: (json['referenceRate'] as num?)?.toDouble(),
-      margin: (json['margin'] as num?)?.toDouble(),
-      type: RateType.values.firstWhere(
-        (e) => e.name == json['type'],
-        orElse: () => RateType.fixed,
-      ),
+      type: type,
     );
   }
 
@@ -106,8 +109,6 @@ class SimulationConfig {
     double? penaltyRate,
     List<Map<String, double>>? pelunasanMaju,
     bool? useFixedPmtPerPeriod,
-    double? floatingRefRate,
-    double? floatingMargin,
   }) {
     return SimulationConfig(
       name: name ?? this.name,
@@ -119,8 +120,6 @@ class SimulationConfig {
       penaltyRate: penaltyRate ?? this.penaltyRate,
       pelunasanMaju: pelunasanMaju ?? this.pelunasanMaju,
       useFixedPmtPerPeriod: useFixedPmtPerPeriod ?? this.useFixedPmtPerPeriod,
-      floatingRefRate: floatingRefRate ?? this.floatingRefRate,
-      floatingMargin: floatingMargin ?? this.floatingMargin,
     );
   }
 

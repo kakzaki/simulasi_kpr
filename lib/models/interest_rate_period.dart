@@ -4,9 +4,9 @@ enum RateType { fixed, floating }
 /// Model periode suku bunga KPR
 class InterestRatePeriod {
   final String period; // "1-3" (tahun)
-  final double rate; // rate fixed (dalam %)
-  final double? referenceRate; // rate referensi untuk floating (SBI/BI Rate, dalam %)
-  final double? margin; // margin untuk floating (dalam %)
+  final double rate; // rate dalam %
+  final double? referenceRate; // deprecated, kept for backward compat
+  final double? margin; // deprecated, kept for backward compat
   final RateType type;
 
   InterestRatePeriod(
@@ -31,14 +31,9 @@ class InterestRatePeriod {
 
   /// Effective rate dalam bentuk desimal (misal 0.08 untuk 8%)
   double get effectiveRate {
-    switch (type) {
-      case RateType.fixed:
-        return rate / 100;
-      case RateType.floating:
-        final ref = referenceRate ?? 0;
-        final m = margin ?? 0;
-        return (ref + m) / 100;
-    }
+    // Always use rate field directly (both fixed & floating)
+    // ReferenceRate + margin deprecated, kept for backward compat only
+    return rate / 100;
   }
 
   /// Effective rate dalam bentuk persen
@@ -60,9 +55,7 @@ class InterestRatePeriod {
       case RateType.fixed:
         return '${rate.toStringAsFixed(2)}% (Fixed)';
       case RateType.floating:
-        final ref = referenceRate ?? 0;
-        final m = margin ?? 0;
-        return '${ref.toStringAsFixed(2)}% + ${m.toStringAsFixed(2)}% = ${(ref + m).toStringAsFixed(2)}% (Floating)';
+        return '${rate.toStringAsFixed(2)}% (Floating)';
     }
   }
 
@@ -84,5 +77,5 @@ class InterestRatePeriod {
 
   @override
   String toString() =>
-      'InterestRatePeriod($period, $type, rate=$rate, ref=$referenceRate, margin=$margin)';
+      'InterestRatePeriod($period, $type, rate=$rate)';
 }

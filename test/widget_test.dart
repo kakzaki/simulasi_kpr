@@ -27,8 +27,7 @@ void main() {
     testWidgets('should show default periods', (tester) async {
       await tester.pumpWidget(const CreditSimulationApp());
       expect(find.text('Tahun 1-3'), findsOneWidget);
-      expect(find.text('Tahun 4-6'), findsOneWidget);
-      expect(find.text('Tahun 7-20'), findsOneWidget);
+      expect(find.text('Tahun 4-20'), findsOneWidget);
     });
 
     testWidgets('should have info and refresh buttons', (tester) async {
@@ -59,7 +58,7 @@ void main() {
       expect(find.textContaining('Input Data Kredit'), findsOneWidget);
       expect(find.textContaining('Suku Bunga'), findsWidgets);
       expect(find.textContaining('3.95'), findsWidgets);
-      expect(find.textContaining('10.25'), findsOneWidget);
+      expect(find.textContaining('13.00'), findsOneWidget);
     });
 
     testWidgets('should have ElevatedButton for calculate', (tester) async {

@@ -59,15 +59,15 @@ void main() {
       expect(LoanCalculator.getYearlyRate(240, periods), closeTo(0.1025, 0.001));
     });
 
-    test('should handle floating rate with reference + margin', () {
+    test('should handle floating rate', () {
       final periods = [
         InterestRatePeriod('1-3', rate: 3.95, type: RateType.fixed),
-        InterestRatePeriod('4-20', referenceRate: 4.0, margin: 2.5, type: RateType.floating),
+        InterestRatePeriod('4-20', rate: 13.0, type: RateType.floating),
       ];
 
       expect(LoanCalculator.getYearlyRate(1, periods), closeTo(0.0395, 0.001));
-      expect(LoanCalculator.getYearlyRate(37, periods), closeTo(0.065, 0.001));
-      expect(LoanCalculator.getYearlyRate(72, periods), closeTo(0.065, 0.001));
+      expect(LoanCalculator.getYearlyRate(37, periods), closeTo(0.13, 0.001));
+      expect(LoanCalculator.getYearlyRate(72, periods), closeTo(0.13, 0.001));
     });
 
     test('should handle combination: fixed berjenjang + floating', () {
@@ -75,14 +75,14 @@ void main() {
         InterestRatePeriod('1-3', rate: 3.95, type: RateType.fixed),
         InterestRatePeriod('4-6', rate: 8.0, type: RateType.fixed),
         InterestRatePeriod('7-10', rate: 10.25, type: RateType.fixed),
-        InterestRatePeriod('11-20', referenceRate: 5.0, margin: 3.0, type: RateType.floating),
+        InterestRatePeriod('11-20', rate: 13.0, type: RateType.floating),
       ];
 
       expect(LoanCalculator.getYearlyRate(1, periods), closeTo(0.0395, 0.001));
       expect(LoanCalculator.getYearlyRate(49, periods), closeTo(0.08, 0.001));
       expect(LoanCalculator.getYearlyRate(85, periods), closeTo(0.1025, 0.001));
-      expect(LoanCalculator.getYearlyRate(133, periods), closeTo(0.08, 0.001));
-      expect(LoanCalculator.getYearlyRate(240, periods), closeTo(0.08, 0.001));
+      expect(LoanCalculator.getYearlyRate(133, periods), closeTo(0.13, 0.001));
+      expect(LoanCalculator.getYearlyRate(240, periods), closeTo(0.13, 0.001));
     });
   });
 
@@ -147,7 +147,7 @@ void main() {
       final periods = [
         InterestRatePeriod('1-3', rate: 3.95, type: RateType.fixed),
         InterestRatePeriod('4-6', rate: 8.0, type: RateType.fixed),
-        InterestRatePeriod('7-20', referenceRate: 4.0, margin: 2.5, type: RateType.floating),
+        InterestRatePeriod('7-20', rate: 13.0, type: RateType.floating),
       ];
       final result = LoanCalculator.validatePeriods(periods, 240);
       expect(result.isValid, isTrue);
@@ -187,7 +187,7 @@ void main() {
 
     test('should handle floating rate calculation', () {
       final periods = [
-        InterestRatePeriod('1-20', referenceRate: 4.0, margin: 2.5, type: RateType.floating),
+        InterestRatePeriod('1-20', rate: 13.0, type: RateType.floating),
       ];
 
       final result = LoanCalculator.calculate(
@@ -198,7 +198,7 @@ void main() {
       );
 
       for (final entry in result.entries) {
-        expect(entry.rate, closeTo(0.065, 0.001));
+        expect(entry.rate, closeTo(0.13, 0.001));
       }
       expect(result.totalPokok, closeTo(100000000, 100));
     });
@@ -206,7 +206,7 @@ void main() {
     test('should handle combination fixed + floating', () {
       final periods = [
         InterestRatePeriod('1-3', rate: 3.95, type: RateType.fixed),
-        InterestRatePeriod('4-20', referenceRate: 4.0, margin: 2.5, type: RateType.floating),
+        InterestRatePeriod('4-20', rate: 13.0, type: RateType.floating),
       ];
 
       final result = LoanCalculator.calculate(
@@ -220,7 +220,7 @@ void main() {
         expect(result.entries[i].rate, closeTo(0.0395, 0.001));
       }
       for (int i = 36; i < 240; i++) {
-        expect(result.entries[i].rate, closeTo(0.065, 0.001));
+        expect(result.entries[i].rate, closeTo(0.13, 0.001));
       }
       expect(result.totalPokok, closeTo(300000000, 100));
     });
@@ -336,7 +336,7 @@ void main() {
         InterestRatePeriod('1-3', rate: 3.95, type: RateType.fixed),
         InterestRatePeriod('4-6', rate: 8.0, type: RateType.fixed),
         InterestRatePeriod('7-10', rate: 10.25, type: RateType.fixed),
-        InterestRatePeriod('11-20', referenceRate: 5.0, margin: 3.0, type: RateType.floating),
+        InterestRatePeriod('11-20', rate: 13.0, type: RateType.floating),
       ];
 
       final validation = LoanCalculator.validatePeriods(periods, 240);
@@ -362,8 +362,8 @@ void main() {
             reason: 'Month ${i + 1} should be 10.25%');
       }
       for (int i = 120; i < 240; i++) {
-        expect(result.entries[i].rate, closeTo(0.08, 0.001),
-            reason: 'Month ${i + 1} should be 8.0% (floating)');
+        expect(result.entries[i].rate, closeTo(0.13, 0.001),
+            reason: 'Month ${i + 1} should be 13.0% (floating)');
       }
 
       expect(result.totalPokok, closeTo(500000000, 100));
@@ -381,12 +381,11 @@ void main() {
     test('should calculate effectiveRate correctly for floating', () {
       final p = InterestRatePeriod(
         '4-20',
-        referenceRate: 4.0,
-        margin: 2.5,
+        rate: 13.0,
         type: RateType.floating,
       );
-      expect(p.effectiveRate, closeTo(0.065, 0.001));
-      expect(p.effectiveRatePercent, closeTo(6.5, 0.01));
+      expect(p.effectiveRate, closeTo(0.13, 0.001));
+      expect(p.effectiveRatePercent, closeTo(13.0, 0.01));
     });
 
     test('should parse startYear and endYear correctly', () {
@@ -404,13 +403,10 @@ void main() {
     test('should generate correct rateDescription for floating', () {
       final p = InterestRatePeriod(
         '4-20',
-        referenceRate: 4.0,
-        margin: 2.5,
+        rate: 13.0,
         type: RateType.floating,
       );
-      expect(p.rateDescription, contains('4.00'));
-      expect(p.rateDescription, contains('2.50'));
-      expect(p.rateDescription, contains('6.50'));
+      expect(p.rateDescription, contains('13.00'));
       expect(p.rateDescription, contains('Floating'));
     });
 
